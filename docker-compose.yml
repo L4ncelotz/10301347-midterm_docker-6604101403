@@ -1,0 +1,44 @@
+version: '3.9'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    environment:
+      # In Docker network, access backend service by name
+      - VITE_API_URL=http://localhost:3000
+      # Note: For client-side SPA (browser) to access backend, 
+      # if generic usage, localhost:3000 works if user maps backend port to host.
+      # If SSR or server-to-server, use http://backend:3000.
+      # Since this is SPA, browser runs it. Browser sees 'localhost:3000' as host machine if port mapped.
+    networks:
+      - app-network
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+    volumes:
+      - ./backend/logs:/app/logs
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  app-network:
+    driver: bridge
